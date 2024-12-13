@@ -1,0 +1,83 @@
+#include <16F877A.h>
+
+// Cấu hình ADC 8-bit
+#device ADC=8
+
+// Cấu hình Fuses
+#FUSES NOWDT, HS, NOPUT, PROTECT, NODEBUG, NOBROWNOUT, NOLVP
+#use delay(clock=8000000)
+
+// Định nghĩa chân output
+#define D9 PIN_C2
+#define D10 PIN_C3
+
+// Mảng số hiển thị LED 7 đoạn
+const int8 a[10] = {0x03, 0x9f, 0x25, 0x0d, 0x99, 0x49, 0x41, 0x1f, 0x01, 0x09};
+
+// Khai báo biến
+int8 chuc, dvi;
+int16 temp;
+
+// Chương trình ngắt Timer0 để quét LED
+#INT_TIMER0
+void qled() {
+    // Hiển thị chữ "độ"
+    Output_d(0xff);
+    Output_b(0x49);
+    output_low(PIN_D3);
+    delay_ms(3);
+    
+    // Hiển thị chữ "C"
+    Output_d(0xff);
+    Output_b(0xe0);
+    output_low(PIN_D2);
+    delay_ms(3);
+    
+    // Hiển thị chục
+    Output_d(0xff);
+    Output_b(a[chuc]);
+    output_low(PIN_D1);
+    delay_ms(3);
+    
+    // Hiển thị đơn vị
+    Output_d(0xff);
+    Output_b(a[dvi]);
+    output_low(PIN_D0);
+    delay_ms(3);
+}
+
+void main() {
+    // Cấu hình ngắt Timer0
+    enable_interrupts(GLOBAL);
+    enable_interrupts(INT_TIMER0);
+    Setup_timer_0(RTCC_DIV_4|RTCC_INTERNAL);
+    
+    // Cấu hình ADC
+    setup_adc(ADC_CLOCK_INTERNAL);
+    setup_adc_ports(AN0_AN1_AN3);
+    set_adc_channel(0);
+    
+    while(1) {
+        // Đọc giá trị ADC và chuyển đổi thành nhiệt độ
+        // ADC resolution = 20mV, Sensor sensitivity = 10mV/°C
+        temp = read_adc() * 2;
+        
+        // Tách số thành chục và đơn vị
+        chuc = temp / 10;
+        dvi = temp % 10;
+        
+        // Điều khiển đèn báo nhiệt độ
+        if(temp < 20) {
+            output_high(D9);
+            output_low(D10);
+        }
+        else if(temp > 20) {
+            output_high(D10);
+            output_low(D9);
+        }
+        else {  // temp == 20
+            output_low(D10);
+            output_low(D9);
+        }
+    }
+}
